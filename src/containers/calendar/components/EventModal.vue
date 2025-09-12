@@ -1,5 +1,5 @@
 <template>
-  <div class="fixed inset-0 z-50">
+  <div>
     <div
       ref="event-modal"
       class="absolute w-[200px] z-50"
@@ -64,6 +64,26 @@
           />
         </div>
 
+        <div class="mb-4">
+          <label class="block text-xs font-medium text-gray-400 mb-2"
+            >Color</label
+          >
+          <div class="flex gap-2">
+            <div
+              v-for="colorOption in colorOptions"
+              :key="colorOption"
+              @click="form.color = colorOption"
+              :style="{ backgroundColor: colorOption }"
+              :class="[
+                'w-6 h-6 rounded-full cursor-pointer border-2',
+                form.color === colorOption
+                  ? 'border-black'
+                  : 'border-transparent',
+              ]"
+            ></div>
+          </div>
+        </div>
+
         <div class="pt-4 flex items-center justify-between">
           <button
             @click="emit('closeModal')"
@@ -101,6 +121,7 @@ interface Props {
     top: number;
     left: number;
   };
+  colorOptions: string[];
 }
 defineProps<Props>();
 

@@ -12,3 +12,11 @@ export const dateTabs: Tab[] = [
   { label: "Day", value: "day" },
   { label: "Agenda", value: "agenda" },
 ];
+
+export const colorOptions = [
+  "#6B4EFF",
+  "#3B82F6",
+  "#10B981",
+  "#F59E0B",
+  "#EF4444",
+];

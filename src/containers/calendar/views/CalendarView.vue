@@ -20,27 +20,30 @@
       />
     </div>
 
-    <EventModal
-      v-if="showModal"
-      v-model="form"
-      :modal-position="modalPosition"
-      :editing-event="editingEvent"
-      @close-modal="closeModal"
-      @delete-event="deleteEvent"
-      @save-event="saveEvent"
-    />
+    <teleport to="body">
+      <EventModal
+        v-if="showModal"
+        v-model="form"
+        :modal-position="modalPosition"
+        :editing-event="editingEvent"
+        :color-options="colorOptions"
+        @close-modal="closeModal"
+        @delete-event="deleteEvent"
+        @save-event="saveEvent"
+      />
+    </teleport>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, reactive } from "vue";
+import { onMounted, onBeforeUnmount, ref, reactive } from "vue";
 import Header from "../components/Header.vue";
 import FullCalendar from "@fullcalendar/vue3";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import listPlugin from "@fullcalendar/list";
-import { actionsTabs, dateTabs } from "../data";
+import { actionsTabs, colorOptions, dateTabs } from "../data";
 import type { CalendarOptions, EventInput } from "@fullcalendar/core";
 import type { Tab } from "../types";
 import EventModal from "../components/EventModal.vue";
@@ -62,8 +65,12 @@ const form = reactive({
   date: "",
   time: "",
   notes: "",
-  color: "#6B4EFF",
+  color: "",
 });
+
+let activeTargetEl: HTMLElement | null = null;
+let scrollParents: (Window | HTMLElement)[] = [];
+let boundUpdatePosition: (() => void) | null = null;
 
 const calendarOptions = reactive<CalendarOptions>({
   plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin],
@@ -75,20 +82,146 @@ const calendarOptions = reactive<CalendarOptions>({
   dateClick: (info) => openModal(info),
   eventDrop: (info) => updateEvent(info.event),
   eventResize: (info) => updateEvent(info.event),
+  eventClick: (info) => openModal(info, info.event),
+  eventContent: (arg) => {
+    return {
+      html: `<div class="custom-event" style="background-color: ${arg.event.backgroundColor};">
+               ${arg.event.title}
+             </div>`,
+    };
+  },
+  slotDuration: "1:00",
+  slotLabelClassNames: ["my-time-label"],
+  slotLabelFormat: { hour: "numeric", minute: "2-digit", hour12: true },
+
+  dayHeaderDidMount: (arg) => {
+    arg.el.classList.add("my-day-header");
+  },
 });
 
 const getCalendarApi = () => calendarRef.value?.getApi();
 
+const getScrollParents = (el: HTMLElement | null): (Window | HTMLElement)[] => {
+  if (!el) {
+    return [window];
+  }
+
+  const parents: (Window | HTMLElement)[] = [];
+  let cur: HTMLElement | null = el;
+  while (cur) {
+    const style = getComputedStyle(cur);
+    const overflowY = style.overflowY;
+    const isScrollable =
+      (overflowY === "auto" || overflowY === "scroll") &&
+      cur.scrollHeight > cur.clientHeight;
+    if (isScrollable) parents.push(cur);
+    cur = cur.parentElement;
+  }
+  parents.push(window);
+  return parents;
+};
+
+const computeAndSetPosition = (targetEl: HTMLElement) => {
+  if (!targetEl) {
+    return;
+  }
+
+  const rect = targetEl.getBoundingClientRect();
+  const scrollTop = window.scrollY || window.pageYOffset;
+  const scrollLeft = window.scrollX || window.pageXOffset;
+  const MODAL_WIDTH = 200;
+  const ARROW_OFFSET = 8;
+
+  modalPosition.left =
+    rect.left + scrollLeft + rect.width / 2 - MODAL_WIDTH / 2;
+  modalPosition.top = rect.top + scrollTop + rect.height + ARROW_OFFSET;
+
+  const maxLeft = document.documentElement.scrollWidth - MODAL_WIDTH - 8;
+  if (modalPosition.left < 8) modalPosition.left = 8;
+  if (modalPosition.left > maxLeft) modalPosition.left = maxLeft;
+};
+
+const attachPositionUpdater = (targetEl: HTMLElement) => {
+  removePositionUpdater();
+  activeTargetEl = targetEl;
+  boundUpdatePosition = () => {
+    if (activeTargetEl) computeAndSetPosition(activeTargetEl);
+  };
+
+  scrollParents = getScrollParents(targetEl);
+  scrollParents.forEach((p) => {
+    if (p === window) {
+      window.addEventListener("scroll", boundUpdatePosition!, {
+        passive: true,
+      });
+      window.addEventListener("resize", boundUpdatePosition!);
+    } else {
+      (p as HTMLElement).addEventListener("scroll", boundUpdatePosition!, {
+        passive: true,
+      });
+    }
+  });
+
+  boundUpdatePosition();
+};
+
+const removePositionUpdater = () => {
+  if (!boundUpdatePosition) {
+    return;
+  }
+
+  scrollParents.forEach((p) => {
+    if (p === window) {
+      window.removeEventListener("scroll", boundUpdatePosition!);
+      window.removeEventListener("resize", boundUpdatePosition!);
+    } else {
+      (p as HTMLElement).removeEventListener("scroll", boundUpdatePosition!);
+    }
+  });
+  scrollParents = [];
+  boundUpdatePosition = null;
+  activeTargetEl = null;
+};
+
+const openModal = (info: any, event: any = null) => {
+  const api = getCalendarApi();
+  if (!api || api.view.type !== "dayGridMonth") return;
+
+  let targetEl: HTMLElement;
+
+  if (event) {
+    const el = info.el as HTMLElement;
+    targetEl = el;
+    editingEvent.value = event;
+    form.title = event.title || "";
+    form.date = event.startStr?.slice(0, 10) || "";
+    form.time = event.startStr?.slice(11, 16) || "";
+    form.notes = event.extendedProps?.notes || "";
+    form.color = event.backgroundColor || "";
+  } else {
+    const dayCell = info.dayEl as HTMLElement;
+    targetEl = dayCell;
+    editingEvent.value = null;
+    form.title = "";
+    form.date = info.dateStr.slice(0, 10);
+    form.time = "";
+    form.notes = "";
+    form.color = "";
+  }
+
+  attachPositionUpdater(targetEl);
+
+  showModal.value = true;
+};
+
 const closeModal = () => {
   showModal.value = false;
+  removePositionUpdater();
 };
 
 const saveEvent = () => {
   const api = getCalendarApi();
-
-  if (!api) {
-    return;
-  }
+  if (!api) return;
 
   const startDateTime =
     form.date && form.time ? `${form.date}T${form.time}` : form.date;
@@ -122,33 +255,28 @@ const updateEvent = (event: any) => {
   console.log("Updated event:", event);
 };
 
-const openModal = (info: any) => {
+const syncCalendarTitle = () => {
   const api = getCalendarApi();
 
-  if (!api || api.view.type !== "dayGridMonth") {
+  if (!api) {
     return;
   }
 
-  const dayCell = info.dayEl as HTMLElement;
-  const rect = dayCell.getBoundingClientRect();
-  const scrollTop = window.scrollY;
-  const scrollLeft = window.scrollX;
+  const start = api.view.currentStart;
+  const month = start.toLocaleString("en-US", { month: "long" });
+  const year = start.getFullYear();
 
-  const MODAL_WIDTH = 200;
-  const ARROW_OFFSET = 8;
-
-  modalPosition.left =
-    rect.left + scrollLeft + rect.width / 2 - MODAL_WIDTH / 2;
-  modalPosition.top = rect.top + scrollTop + rect.height + ARROW_OFFSET;
-
-  form.date = info.dateStr.slice(0, 10);
-  showModal.value = true;
+  calendarTitle.value = `${month}, ${year}`;
 };
 
 const handleDateTabChange = (tab: Tab) => {
   currentDateActiveTab.value = tab;
+
   const api = getCalendarApi();
-  if (!api) return;
+
+  if (!api) {
+    return;
+  }
 
   switch (tab.value) {
     case "month":
@@ -164,13 +292,18 @@ const handleDateTabChange = (tab: Tab) => {
       api.changeView("listWeek");
       break;
   }
+
   syncCalendarTitle();
 };
 
 const handleActionTabChange = (tab: Tab) => {
   currentActionActiveTab.value = tab;
+
   const api = getCalendarApi();
-  if (!api) return;
+
+  if (!api) {
+    return;
+  }
 
   switch (tab.value) {
     case "today":
@@ -183,20 +316,16 @@ const handleActionTabChange = (tab: Tab) => {
       api.next();
       break;
   }
-  syncCalendarTitle();
-};
 
-const syncCalendarTitle = () => {
-  const api = getCalendarApi();
-  if (!api) return;
-  const start = api.view.currentStart;
-  const month = start.toLocaleString("en-US", { month: "long" });
-  const year = start.getFullYear();
-  calendarTitle.value = `${month}, ${year}`;
+  syncCalendarTitle();
 };
 
 onMounted(() => {
   syncCalendarTitle();
+});
+
+onBeforeUnmount(() => {
+  removePositionUpdater();
 });
 </script>
 
@@ -231,5 +360,57 @@ onMounted(() => {
   transform: rotate(45deg);
   border-left: 1px solid #d1d5db;
   border-top: 1px solid #d1d5db;
+}
+
+.custom-calendar .custom-event {
+  width: 100%;
+  color: white;
+  font-weight: 600;
+  font-size: 14px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  box-sizing: border-box;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.fc .fc-timegrid-slot,
+.fc .fc-timegrid-axis-frame {
+  background: #f5f6fa 0% 0% no-repeat padding-box;
+  height: 80px;
+}
+
+.fc-timegrid-divider {
+  display: none;
+}
+
+.fc .fc-scrollgrid-section-header .fc-timegrid-axis {
+  display: none;
+}
+
+.fc .fc-timegrid-slot-label {
+  width: 100px;
+}
+
+.fc .fc-timegrid-axis-frame {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+  overflow: hidden;
+  background-color: #fff;
+  border: 1px solid var(--fc-border-color);
+}
+
+.custom-calendar .my-time-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: white;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  padding-left: 8px;
 }
 </style>
