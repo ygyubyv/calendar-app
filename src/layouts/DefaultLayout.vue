@@ -1,5 +1,5 @@
 <template>
-  <div class="flex h-screen bg-gray-50">
+  <div class="flex h-screen bg-gray-50 font-source">
     <aside
       ref="aside-menu"
       :class="[
@@ -9,7 +9,7 @@
       ]"
     >
       <div
-        class="h-16 flex items-center px-6 font-bold text-lg tracking-wide border-b border-gray-700"
+        class="h-16 flex items-center px-6 font-bold text-lg tracking-[3.5px] border-b border-gray-700"
       >
         IMPEKABLE
       </div>
@@ -19,7 +19,7 @@
           v-for="item in navItems"
           :key="item.name"
           :to="item.to"
-          class="flex items-center gap-3 px-6 py-3.5 hover:bg-gray-700"
+          class="flex items-center gap-3 px-6 py-3.5 text-[#F0F0F7] hover:bg-gray-700"
           active-class="bg-gray-700 border-l-4 border-gray-800"
           @click="isOpen = false"
         >
@@ -62,7 +62,7 @@
         </div>
       </header>
 
-      <main class="flex-1 overflow-y-auto p-6">
+      <main class="flex-1 overflow-y-auto bg-[#F0F0F7] p-6">
         <RouterView />
       </main>
     </div>
