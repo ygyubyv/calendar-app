@@ -17,6 +17,7 @@
         ref="calendarRef"
         :options="calendarOptions"
         initial-view="dayGridMonth"
+        class="custom-calendar"
       />
     </div>
   </div>
@@ -120,3 +121,29 @@ onMounted(() => {
   syncCalendarTitle();
 });
 </script>
+
+<style>
+.custom-calendar .fc-col-header-cell-cushion {
+  background-color: #eaf0f4;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  border: 1px #eaf0f4;
+  color: #9ca3af;
+  font-family: var(--font-source);
+}
+
+.fc-daygrid-day {
+  background-color: #ffffff;
+  border: 3px solid #eaf0f4;
+  padding: 20px 10px 0 0;
+  font-family: var(--font-source);
+  color: #4b5563;
+}
+
+.custom-calendar .fc-day-today .fc-daygrid-day-frame {
+  background-color: #e0f2fe;
+}
+</style>
