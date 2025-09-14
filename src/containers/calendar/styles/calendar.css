@@ -1,0 +1,114 @@
+.custom-calendar .fc-col-header-cell-cushion {
+  background-color: #eaf0f4;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  color: #9ca3af;
+  font-family: var(--font-source);
+}
+
+.custom-calendar .fc-daygrid-day-top a {
+  margin: 20px 10px 0 0;
+}
+
+.custom-calendar .fc-col-header-cell {
+  border: 0;
+}
+
+.custom-calendar .fc-day-today .fc-daygrid-day-frame {
+  background-color: #e0f2fe;
+}
+
+.modal-arrow {
+  width: 8px;
+  height: 8px;
+  background: white;
+  transform: rotate(45deg);
+  border-left: 1px solid #d1d5db;
+  border-top: 1px solid #d1d5db;
+}
+
+.fc-direction-ltr .fc-daygrid-event.fc-event-end,
+.fc-direction-rtl .fc-daygrid-event.fc-event-start {
+  margin: 0;
+}
+
+.fc-direction-ltr .fc-daygrid-event.fc-event-start,
+.fc-direction-rtl .fc-daygrid-event.fc-event-end {
+  margin: 0;
+}
+
+.fc .fc-timegrid-slot,
+.fc .fc-timegrid-axis-frame {
+  height: 80px;
+}
+
+.fc-timegrid-col.fc-day-today {
+  background-color: #e0f2fe !important;
+}
+
+.fc-timegrid-divider {
+  display: none;
+}
+
+.fc-timegrid-axis .fc-timegrid-axis-frame:first-child {
+  height: 60px;
+}
+
+.fc .fc-timegrid-slot-label {
+  width: 100px;
+}
+
+.fc .fc-timegrid-axis-frame {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+  overflow: hidden;
+  background-color: #fff;
+  border: 1px solid var(--fc-border-color);
+}
+
+.custom-calendar .my-time-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: white;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  padding-left: 8px;
+}
+
+.fc-direction-ltr .fc-timegrid-col-events {
+  margin: 0;
+}
+
+.fc-timegrid-event .fc-event-main {
+  place-items: center;
+  display: grid;
+  font-size: 18px;
+}
+
+.custom-calendar .custom-event {
+  width: 100%;
+  color: white;
+  font-weight: 600;
+  font-size: 14px;
+  padding: 8px 0 8px 25px;
+  border-radius: 6px;
+  box-sizing: border-box;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.fc-daygrid-dot-event {
+  padding: 1px 0px;
+}
+
+.fc-timegrid-event {
+  margin: 0;
+}

@@ -2,7 +2,7 @@
   <div>
     <div
       ref="event-modal"
-      class="absolute w-[200px] z-50"
+      class="absolute w-[260px] z-50"
       :style="{
         top: modalPosition.top + 'px',
         left: modalPosition.left + 'px',
@@ -26,43 +26,33 @@
         </button>
 
         <div class="mb-4">
-          <label class="block text-xs font-medium text-gray-400"
-            >Event name</label
+          <ul
+            v-if="Object.keys(errors).length"
+            class="text-red-400 text-sm space-y-1"
           >
-          <input
-            v-model="form.title"
-            type="text"
-            maxlength="30"
-            class="w-full text-sm text-gray-700 outline-none bg-transparent border-0 border-b-[1px] border-b-[#EDEFF6] py-1"
-          />
+            <li v-for="(msg, field) in errors" :key="field">
+              {{ msg }}
+            </li>
+          </ul>
         </div>
 
-        <div class="mb-4">
-          <label class="block text-xs font-medium text-gray-400">Date</label>
-          <input
-            v-model="form.date"
-            type="date"
-            class="w-full text-sm text-gray-700 outline-none bg-transparent border-0 border-b-[1px] border-b-[#EDEFF6] py-1"
-          />
-        </div>
+        <BaseInput
+          type="text"
+          label="Event name"
+          class="mb-4"
+          v-model="form.title"
+        />
 
-        <div class="mb-4">
-          <label class="block text-xs font-medium text-gray-400">Time</label>
-          <input
-            v-model="form.time"
-            type="time"
-            class="w-full text-sm text-gray-700 outline-none bg-transparent border-0 border-b-[1px] border-b-[#EDEFF6] py-1"
-          />
-        </div>
+        <BaseInput type="date" label="Date" class="mb-4" v-model="form.date" />
 
-        <div class="mb-2">
-          <label class="block text-xs font-medium text-gray-400">Notes</label>
-          <input
-            v-model="form.notes"
-            type="text"
-            class="w-full text-sm text-gray-700 outline-none bg-transparent border-0 border-b-[1px] border-b-[#EDEFF6] py-1"
-          />
-        </div>
+        <BaseInput type="time" label="Time" class="mb-4" v-model="form.time" />
+
+        <BaseInput
+          type="text"
+          label="Notes"
+          class="mb-2"
+          v-model="form.notes"
+        />
 
         <div class="mb-4">
           <label class="block text-xs font-medium text-gray-400 mb-2"
@@ -85,24 +75,40 @@
         </div>
 
         <div class="pt-4 flex items-center justify-between">
-          <button
-            @click="emit('closeModal')"
-            class="text-red-500 text-sm font-medium hover:underline"
-          >
-            Cancel
-          </button>
-          <div class="flex items-center gap-4">
+          <template v-if="editingEvent">
             <button
-              v-if="editingEvent"
               @click="emit('deleteEvent')"
               class="text-red-500 text-sm font-medium hover:underline"
             >
-              Delete
+              Discard
             </button>
-            <button @click="emit('saveEvent')" class="text-[14px] font-medium">
-              Save
+
+            <div class="flex items-center gap-4">
+              <button
+                @click="emit('saveEvent')"
+                class="text-[14px] font-medium"
+              >
+                Edit
+              </button>
+            </div>
+          </template>
+
+          <template v-else>
+            <button
+              @click="emit('closeModal')"
+              class="text-red-500 text-sm font-medium hover:underline"
+            >
+              Cancel
             </button>
-          </div>
+            <div class="flex items-center gap-4">
+              <button
+                @click="emit('saveEvent')"
+                class="text-[14px] font-medium"
+              >
+                Save
+              </button>
+            </div>
+          </template>
         </div>
       </div>
     </div>
@@ -114,6 +120,7 @@ import { XMarkIcon } from "@heroicons/vue/24/outline";
 import type { Form } from "../types";
 import { useTemplateRef } from "vue";
 import { onClickOutside } from "@vueuse/core";
+import BaseInput from "@/components/Base/BaseInput.vue";
 
 interface Props {
   editingEvent: any;
@@ -122,6 +129,7 @@ interface Props {
     left: number;
   };
   colorOptions: string[];
+  errors: string[];
 }
 defineProps<Props>();
 

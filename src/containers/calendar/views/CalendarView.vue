@@ -27,6 +27,7 @@
         :modal-position="modalPosition"
         :editing-event="editingEvent"
         :color-options="colorOptions"
+        :errors="formErrors"
         @close-modal="closeModal"
         @delete-event="deleteEvent"
         @save-event="saveEvent"
@@ -47,6 +48,9 @@ import { actionsTabs, colorOptions, dateTabs } from "../data";
 import type { CalendarOptions, EventInput } from "@fullcalendar/core";
 import type { Tab } from "../types";
 import EventModal from "../components/EventModal.vue";
+import { useEventForm } from "../validation/hooks/useEventForm";
+
+const { form, handleSubmit } = useEventForm();
 
 const events = ref<EventInput[]>([]);
 
@@ -57,16 +61,9 @@ const calendarTitle = ref<string>("");
 
 const showModal = ref(false);
 const editingEvent = ref<any>(null);
+const formErrors = ref<any>([]);
 
 const modalPosition = reactive({ top: 0, left: 0 });
-
-const form = reactive({
-  title: "",
-  date: "",
-  time: "",
-  notes: "",
-  color: "",
-});
 
 let activeTargetEl: HTMLElement | null = null;
 let scrollParents: (Window | HTMLElement)[] = [];
@@ -85,7 +82,11 @@ const calendarOptions = reactive<CalendarOptions>({
   eventClick: (info) => openModal(info, info.event),
   eventContent: (arg) => {
     return {
-      html: `<div class="custom-event" style="background-color: ${arg.event.backgroundColor};">
+      html: `<div class="${
+        arg.view.type === "dayGridMonth" ? "custom-event" : ""
+      }" style="background-color: ${
+        arg.event.backgroundColor || "transparent"
+      };">
                ${arg.event.title}
              </div>`,
     };
@@ -93,7 +94,7 @@ const calendarOptions = reactive<CalendarOptions>({
   slotDuration: "1:00",
   slotLabelClassNames: ["my-time-label"],
   slotLabelFormat: { hour: "numeric", minute: "2-digit", hour12: true },
-
+  slotEventOverlap: false,
   dayHeaderDidMount: (arg) => {
     arg.el.classList.add("my-day-header");
   },
@@ -129,7 +130,7 @@ const computeAndSetPosition = (targetEl: HTMLElement) => {
   const rect = targetEl.getBoundingClientRect();
   const scrollTop = window.scrollY || window.pageYOffset;
   const scrollLeft = window.scrollX || window.pageXOffset;
-  const MODAL_WIDTH = 200;
+  const MODAL_WIDTH = 260;
   const ARROW_OFFSET = 8;
 
   modalPosition.left =
@@ -183,6 +184,32 @@ const removePositionUpdater = () => {
   activeTargetEl = null;
 };
 
+const loadEvents = (): EventInput[] => {
+  try {
+    const data = localStorage.getItem("calendar-events");
+    return data ? JSON.parse(data) : [];
+  } catch (e) {
+    console.error("Failed to load events:", e);
+    return [];
+  }
+};
+
+const saveEventsToStorage = () => {
+  const api = getCalendarApi();
+  if (!api) return;
+
+  const allEvents = api.getEvents().map((ev) => ({
+    id: ev.id,
+    title: ev.title,
+    start: ev.startStr,
+    end: ev.endStr,
+    backgroundColor: ev.backgroundColor,
+    extendedProps: ev.extendedProps,
+  }));
+
+  localStorage.setItem("calendar-events", JSON.stringify(allEvents));
+};
+
 const openModal = (info: any, event: any = null) => {
   const api = getCalendarApi();
   if (!api || api.view.type !== "dayGridMonth") return;
@@ -216,35 +243,43 @@ const openModal = (info: any, event: any = null) => {
 
 const closeModal = () => {
   showModal.value = false;
+  formErrors.value = [];
   removePositionUpdater();
 };
 
-const saveEvent = () => {
-  const api = getCalendarApi();
-  if (!api) return;
+const saveEvent = handleSubmit(
+  (values) => {
+    const api = getCalendarApi();
+    if (!api) return;
 
-  const startDateTime =
-    form.date && form.time ? `${form.date}T${form.time}` : form.date;
+    const startDateTime =
+      form.date && form.time ? `${form.date}T${form.time}` : form.date;
 
-  if (editingEvent.value) {
-    editingEvent.value.setProp("title", form.title);
-    editingEvent.value.setStart(startDateTime);
-    editingEvent.value.setExtendedProp("notes", form.notes);
-    editingEvent.value.setProp("backgroundColor", form.color);
-  } else {
-    api.addEvent({
-      title: form.title,
-      start: startDateTime,
-      backgroundColor: form.color,
-      extendedProps: { notes: form.notes },
-    });
+    if (editingEvent.value) {
+      editingEvent.value.setProp("title", values.title);
+      editingEvent.value.setStart(startDateTime);
+      editingEvent.value.setExtendedProp("notes", form.notes);
+      editingEvent.value.setProp("backgroundColor", form.color);
+    } else {
+      api.addEvent({
+        title: values.title,
+        start: startDateTime,
+        backgroundColor: form.color,
+        extendedProps: { notes: form.notes },
+      });
+    }
+
+    saveEventsToStorage();
+    closeModal();
+  },
+  (validationErrors) => {
+    formErrors.value = validationErrors.errors;
   }
-
-  closeModal();
-};
+);
 
 const deleteEvent = () => {
   if (editingEvent.value) {
+    saveEventsToStorage();
     editingEvent.value.remove();
   }
 
@@ -252,21 +287,52 @@ const deleteEvent = () => {
 };
 
 const updateEvent = (event: any) => {
-  console.log("Updated event:", event);
+  console.log("Empty update event function for drag and drop events", event);
+  saveEventsToStorage();
 };
 
 const syncCalendarTitle = () => {
   const api = getCalendarApi();
+  if (!api) return;
 
-  if (!api) {
-    return;
-  }
-
+  const viewType = api.view.type;
   const start = api.view.currentStart;
-  const month = start.toLocaleString("en-US", { month: "long" });
-  const year = start.getFullYear();
+  const end = api.view.currentEnd;
 
-  calendarTitle.value = `${month}, ${year}`;
+  switch (viewType) {
+    case "dayGridMonth":
+      const month = start.toLocaleString("en-US", { month: "long" });
+      const year = start.getFullYear();
+      calendarTitle.value = `${month} ${year}`;
+      break;
+
+    case "timeGridWeek":
+      const startStr = start.toLocaleString("en-US", {
+        month: "short",
+        day: "2-digit",
+      });
+      const endStr = end.toLocaleString("en-US", {
+        month: "short",
+        day: "2-digit",
+      });
+      calendarTitle.value = `${startStr} - ${endStr}`;
+      break;
+
+    case "timeGridDay":
+      const dayStr = start.toLocaleString("en-US", {
+        weekday: "long",
+        month: "short",
+        day: "2-digit",
+      });
+      calendarTitle.value = dayStr;
+      break;
+
+    default:
+      const fallbackMonth = start.toLocaleString("en-US", { month: "long" });
+      const fallbackYear = start.getFullYear();
+      calendarTitle.value = `${fallbackMonth} ${fallbackYear}`;
+      break;
+  }
 };
 
 const handleDateTabChange = (tab: Tab) => {
@@ -321,6 +387,11 @@ const handleActionTabChange = (tab: Tab) => {
 };
 
 onMounted(() => {
+  const api = getCalendarApi();
+  if (api) {
+    const saved = loadEvents();
+    saved.forEach((ev) => api.addEvent(ev));
+  }
   syncCalendarTitle();
 });
 
@@ -330,87 +401,5 @@ onBeforeUnmount(() => {
 </script>
 
 <style>
-.custom-calendar .fc-col-header-cell-cushion {
-  background-color: #eaf0f4;
-  height: 60px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 600;
-  color: #9ca3af;
-  font-family: var(--font-source);
-}
-
-.custom-calendar .fc-daygrid-day-top a {
-  margin: 20px 10px 0 0;
-}
-
-.custom-calendar .fc-col-header-cell {
-  border: 0;
-}
-
-.custom-calendar .fc-day-today .fc-daygrid-day-frame {
-  background-color: #e0f2fe;
-}
-
-.modal-arrow {
-  width: 8px;
-  height: 8px;
-  background: white;
-  transform: rotate(45deg);
-  border-left: 1px solid #d1d5db;
-  border-top: 1px solid #d1d5db;
-}
-
-.custom-calendar .custom-event {
-  width: 100%;
-  color: white;
-  font-weight: 600;
-  font-size: 14px;
-  padding: 4px 6px;
-  border-radius: 6px;
-  box-sizing: border-box;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.fc .fc-timegrid-slot,
-.fc .fc-timegrid-axis-frame {
-  background: #f5f6fa 0% 0% no-repeat padding-box;
-  height: 80px;
-}
-
-.fc-timegrid-divider {
-  display: none;
-}
-
-.fc .fc-scrollgrid-section-header .fc-timegrid-axis {
-  display: none;
-}
-
-.fc .fc-timegrid-slot-label {
-  width: 100px;
-}
-
-.fc .fc-timegrid-axis-frame {
-  align-items: center;
-  display: flex;
-  justify-content: center;
-  overflow: hidden;
-  background-color: #fff;
-  border: 1px solid var(--fc-border-color);
-}
-
-.custom-calendar .my-time-label {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: white;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  box-sizing: border-box;
-  padding-left: 8px;
-}
+@import "../styles/calendar.css";
 </style>

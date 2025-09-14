@@ -3,13 +3,13 @@
     <aside
       ref="aside-menu"
       :class="[
-        'fixed inset-y-0 left-0 w-64 bg-gray-600 text-gray-100 flex flex-col transform transition-transform duration-300 ease-in-out z-50',
+        'fixed inset-y-0 left-0 w-76 bg-[#353247] text-gray-100 flex flex-col transform transition-transform duration-300 ease-in-out z-50',
         isOpen ? 'translate-x-0' : '-translate-x-full',
         'md:translate-x-0 md:static md:flex-shrink-0',
       ]"
     >
       <div
-        class="h-16 flex items-center px-6 font-bold text-lg tracking-[3.5px] border-b border-gray-700"
+        class="h-16 flex items-center px-6 font-bold text-lg tracking-[4px] bg-[#2a2938]"
       >
         IMPEKABLE
       </div>
@@ -19,8 +19,8 @@
           v-for="item in navItems"
           :key="item.name"
           :to="item.to"
-          class="flex items-center gap-3 px-6 py-3.5 text-[#F0F0F7] hover:bg-gray-700"
-          active-class="bg-gray-700 border-l-4 border-gray-800"
+          class="flex items-center gap-3 px-6 py-3.5 text-gray-200 hover:bg-[#2a2938]"
+          active-class="bg-[#2a2938] border-l-4 border-[#A3A0FB]"
           @click="isOpen = false"
         >
           <component :is="item.icon" class="w-5 h-5" />
